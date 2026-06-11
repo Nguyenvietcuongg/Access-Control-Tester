@@ -1,11 +1,11 @@
 from __future__ import annotations
 
-from pathlib import Path
+from typing import Optional
 
 import typer
 
 from app.finding_reporter import FindingReporter
-from app.models import Account, EndpointCandidate, Finding
+from app.models import Account, Finding
 from app.risk_analyzer import RiskAnalyzer
 from app.request_builder import RequestBuilder
 from app.request_loader import RequestLoader
@@ -30,11 +30,15 @@ storage = Storage()
 
 @app.command()
 def scan(source_path: str = typer.Argument(..., help="Path to source code folder")) -> None:
+    print(f"[scan] target folder: {source_path}")
     candidates = source_scanner.scan(source_path)
+    print(f"[scan] raw candidates: {len(candidates)}")
     ranked = risk_analyzer.rank(candidates)
+    print(f"[scan] ranked candidates: {len(ranked)}")
     storage.save_endpoints(ranked)
+    print("[scan] saved to data/endpoints.json")
     for item in ranked:
-        print(f"[{item.risk_score}] {item.method} {item.path} -> {item.source_file}")
+        print(f"[{item.risk_score}] [{item.category}] {item.method} {item.path} -> {item.source_file}")
 
 
 @app.command()
@@ -54,12 +58,13 @@ def replay(
     result_b = replay_engine.replay(account_b, request)
 
     diff = response_diff.compare(result_a, result_b)
-    findings: list[Finding] = []
+    findings = []
     if diff.suspicious:
         findings.append(
             Finding(
-                title="Possible authorization inconsistency",
+                title="Possible access control issue",
                 severity="medium",
+                category="Broken Access Control",
                 endpoint=request.url,
                 evidence=f"status_delta={diff.status_delta}, body_diff_lines={diff.body_diff_lines}, elapsed_delta_ms={diff.elapsed_delta_ms:.2f}",
                 notes="Compare responses from two accounts to confirm whether access is intended.",
@@ -75,7 +80,7 @@ def replay(
 def run(
     source_path: str = typer.Option(..., help="Path to source code folder"),
     base_url: str = typer.Option(..., help="Target base URL"),
-    request_path: str | None = typer.Option(None, help="Optional raw request file"),
+    request_path: Optional[str] = typer.Option(None, help="Optional raw request file"),
     user_a: str = typer.Option(..., help="Username of first account"),
     user_b: str = typer.Option(..., help="Username of second account"),
 ) -> None:
@@ -83,7 +88,7 @@ def run(
     ranked = risk_analyzer.rank(candidates)
     storage.save_endpoints(ranked)
 
-    findings: list[Finding] = []
+    findings = []
     top_candidates = ranked[:5]
     for candidate in top_candidates:
         request = request_builder.build(candidate, base_url)
@@ -95,8 +100,9 @@ def run(
         if diff.suspicious:
             findings.append(
                 Finding(
-                    title="Possible authorization inconsistency",
+                    title="Possible access control issue",
                     severity="medium",
+                    category=candidate.category,
                     endpoint=request.url,
                     evidence=f"status_delta={diff.status_delta}, body_diff_lines={diff.body_diff_lines}",
                     notes=f"Auto-generated from scanned route {candidate.source_file}",
@@ -114,8 +120,9 @@ def run(
         if diff.suspicious:
             findings.append(
                 Finding(
-                    title="Possible authorization inconsistency",
+                    title="Possible access control issue",
                     severity="medium",
+                    category="Broken Access Control",
                     endpoint=request.url,
                     evidence=f"status_delta={diff.status_delta}, body_diff_lines={diff.body_diff_lines}",
                     notes="Detected from supplied raw request file.",

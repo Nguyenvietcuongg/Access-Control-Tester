@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Optional
 
 
 @dataclass
@@ -15,8 +15,8 @@ class Account:
 class SessionInfo:
     username: str
     cookies: dict[str, str] = field(default_factory=dict)
-    bearer_token: str | None = None
-    csrf_token: str | None = None
+    bearer_token: Optional[str] = None
+    csrf_token: Optional[str] = None
 
 
 @dataclass
@@ -25,9 +25,9 @@ class RequestSpec:
     url: str
     headers: dict[str, str] = field(default_factory=dict)
     query: dict[str, str] = field(default_factory=dict)
-    json_body: dict[str, Any] | None = None
-    data_body: dict[str, str] | None = None
-    raw_body: str | None = None
+    json_body: Optional[dict[str, Any]] = None
+    data_body: Optional[dict[str, str]] = None
+    raw_body: Optional[str] = None
 
 
 @dataclass
@@ -35,7 +35,12 @@ class EndpointCandidate:
     method: str
     path: str
     source_file: str
+    line_number: int = 0
+    matched_text: str = ""
+    param_name: str = ""
     risk_score: int = 0
+    category: str = "IDOR"
+    reason: str = ""
     notes: str = ""
 
 
@@ -60,6 +65,7 @@ class ResponseDiffResult:
 class Finding:
     title: str
     severity: str
+    category: str
     endpoint: str
     evidence: str
     notes: str = ""

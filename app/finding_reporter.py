@@ -22,7 +22,7 @@ class FindingReporter:
             print("No findings detected.")
             return
         for item in findings:
-            print(f"[{item.severity}] {item.title} -> {item.endpoint}")
+            print(f"[{item.severity}] [{item.category}] {item.title} -> {item.endpoint}")
 
     def print_saved_path(self, path: Path) -> None:
         print(f"Report saved to: {path}")
